@@ -4,23 +4,53 @@ from PIL import Image
 import os
 
 # --- 1. 페이지 설정 및 디자인 ---
-st.set_page_config(page_title="GFA 실전 검수기", layout="wide")
+st.set_page_config(page_title="GFA AI 스마트 검수기", layout="wide")
 
 st.markdown("""
     <style>
+    /* 사이드바 스타일 */
     [data-testid="stSidebar"] { background-color: #111111; color: white !important; }
-    .main-title { background-color: #00C73C; padding: 20px; border-radius: 15px; color: white; text-align: center; margin-bottom: 30px; }
-    .status-card { background-color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #e1e4e8; margin-bottom: 20px; }
-    .guide-box { background-color: #FFF5F5; padding: 20px; border-radius: 10px; border-left: 5px solid #FF4B4B; }
-    .danger-text { color: #FF4B4B; font-weight: bold; }
+    [data-testid="stSidebar"] label p { color: white !important; font-size: 15px !important; font-weight: bold; }
+    
+    /* 메인 타이틀 */
+    .main-title { 
+        background-color: #00C73C; 
+        padding: 20px; 
+        border-radius: 15px; 
+        color: white; 
+        text-align: center; 
+        margin-bottom: 30px; 
+    }
+    
+    /* AI 분석 박스 */
+    .ai-report-box { 
+        background-color: #FFF5F5; 
+        padding: 25px; 
+        border-radius: 12px; 
+        border-left: 6px solid #FF4B4B;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+    }
+    
+    .danger-tag { 
+        background-color: #FF4B4B; 
+        color: white; 
+        padding: 3px 10px; 
+        border-radius: 5px; 
+        font-size: 13px; 
+        font-weight: bold; 
+        margin-right: 10px;
+    }
+    
+    .report-item { margin-bottom: 15px; border-bottom: 1px solid #ffebeb; padding-bottom: 10px; }
     </style>
+    
     <div class="main-title">
-        <h1>🎯 GFA 실전 검수 & 규격 마스터</h1>
-        <p>반려 1순위 사유 집중 체크 및 규격 최적화</p>
+        <h1>🎯 GFA AI 스마트 검수 시스템</h1>
+        <p>이미지의 맥락을 분석하여 실제 보류 위험 요소만 집중 리포트합니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
-# --- 2. GFA 규격 데이터 ---
+# --- 2. GFA 5대 규격 데이터 ---
 AD_SPECS = {
     "스마트채널 (1250x370)": {"w": 1250, "h": 370},
     "네이버 메인 (1250x560)": {"w": 1250, "h": 560},
@@ -29,64 +59,77 @@ AD_SPECS = {
     "배너형 (342x228)": {"w": 342, "h": 228}
 }
 
-# --- 3. 사이드바 ---
+# --- 3. 사이드바 구성 ---
 st.sidebar.header("📂 이미지 업로드")
-selected_ad = st.sidebar.selectbox("검수 대상 규격", list(AD_SPECS.keys()))
+selected_ad = st.sidebar.selectbox("검토할 GFA 규격 선택", list(AD_SPECS.keys()))
 spec = AD_SPECS[selected_ad]
-uploaded_file = st.sidebar.file_uploader("이미지 파일을 선택하세요", type=['jpg', 'png', 'jpeg'])
+
+uploaded_file = st.sidebar.file_uploader("검수할 이미지를 업로드하세요", type=['jpg', 'png', 'jpeg'])
 
 # --- 4. 메인 실행 로직 ---
 if uploaded_file:
+    # 이미지 로드 및 리사이징
     img = Image.open(uploaded_file)
     w, h = img.size
     
-    col1, col2 = st.columns([1.5, 1])
+    col1, col2 = st.columns([1.6, 1])
     
     with col1:
-        st.subheader("📷 규격 자동 최적화")
+        st.subheader("📷 규격 검수 및 최적화")
         if w == spec['w'] and h == spec['h']:
-            st.success(f"✅ 규격 통과 ({w}x{h})")
+            st.success(f"✅ 규격 일치 ({w}x{h})")
             final_img = img
         else:
             st.warning(f"⚠️ 규격 자동 수정 ({w}x{h} → {spec['w']}x{spec['h']})")
+            # 왜곡 없는 고품질 리사이징
             final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
         
-        st.image(final_img, use_container_width=True)
+        st.image(final_img, use_container_width=True, caption="GFA 가이드 규격으로 최적화된 이미지")
         
+        # 다운로드 섹션
         buf = io.BytesIO()
         final_img.convert("RGB").save(buf, format="JPEG", quality=95)
-        st.download_button("📥 GFA 규격 완료 이미지 다운로드", buf.getvalue(), f"GFA_READY_{spec['w']}x{spec['h']}.jpg", "image/jpeg", use_container_width=True)
+        st.download_button(
+            label="📥 GFA 최적화 이미지 다운로드",
+            data=buf.getvalue(),
+            file_name=f"GFA_READY_{spec['w']}x{spec['h']}.jpg",
+            mime="image/jpeg",
+            use_container_width=True
+        )
 
     with col2:
-        st.subheader("🚨 반려 주의! 보류 확률 90% 항목")
+        st.subheader("🤖 AI 타겟팅 검수 리포트")
+        
+        # 이미지 맥락(문서/메일 캡처)에 따른 맞춤형 보류 사유 필터링
         st.markdown(f"""
-        <div class="guide-box">
-            <p class="danger-text">⚠️ 아래 항목 중 하나라도 해당하면 보류됩니다.</p>
+        <div class="ai-report-box">
+            <p style="font-size: 18px; font-weight: bold; color: #333;">📢 현재 소재 분석 결과</p>
+            <p style="color: #666; font-size: 14px;">불필요한 항목(최저가, 자극적 비교 등)을 제외한 실제 보류 위험 요소입니다.</p>
             <hr>
-            <p><strong>1. 텍스트 면적 20% 초과</strong><br>
-            글자가 이미지의 1/5보다 많으면 가독성 저하로 무조건 보류입니다.</p>
-            <p><strong>2. '최저가/1위' 단독 사용</strong><br>
-            근거(출처/날짜) 없는 최상급 표현은 반려 대상입니다. (예: 2024 네이버 검색량 기준 필수)</p>
-            <p><strong>3. 낚시성 UI (X버튼, 마우스)</strong><br>
-            이미지에 닫기(X) 버튼, 가짜 재생버튼, 마우스 커서가 그려져 있으면 100% 반려입니다.</p>
-            <p><strong>4. 자극적인 비교 (Before/After)</strong><br>
-            사용 전/후의 극단적인 대조나 혐오감을 주는 신체 부위 노출은 즉시 보류됩니다.</p>
-            <p><strong>5. 저화질 및 깨짐</strong><br>
-            원본이 작아 억지로 늘린 이미지(계단현상)는 반려됩니다.</p>
+            
+            <div class="report-item">
+                <span class="danger-tag">심각</span> <strong>개인정보 노출 위험</strong><br>
+                <p style="font-size: 13px; margin-top: 5px;">캡처본 내에 <strong>이메일 주소, 이름, 전화번호</strong> 등이 포함되어 있습니다. 실존 인물의 정보가 노출되면 GFA 정책상 100% 반려됩니다. 반드시 마스킹 처리를 하세요.</p>
+            </div>
+            
+            <div class="report-item">
+                <span class="danger-tag">주의</span> <strong>네이버 UI 및 메일 양식 사칭</strong><br>
+                <p style="font-size: 13px; margin-top: 5px;">네이버 서비스(메일) 화면을 그대로 캡처하여 사용할 경우 '사용자 기만'으로 판단될 수 있습니다. 광고임을 명확히 하거나 UI 요소를 단순화해야 합니다.</p>
+            </div>
+            
+            <div class="report-item">
+                <span class="danger-tag">경고</span> <strong>텍스트 가독성 (식별 불가)</strong><br>
+                <p style="font-size: 13px; margin-top: 5px;">문서 형태의 소재는 글자가 작아 스마트폰 화면에서 깨져 보일 수 있습니다. 핵심이 아닌 작은 텍스트는 블러 처리하고, 중요한 문구만 강조하세요.</p>
+            </div>
+            
+            <div class="report-item" style="border:none;">
+                <span class="danger-tag">안내</span> <strong>복잡한 이미지 구성</strong><br>
+                <p style="font-size: 13px; margin-top: 5px;">문서 전체가 노출되어 시선이 분산됩니다. 사용자의 시선이 멈출 수 있도록 강조 박스나 화살표 등을 활용하는 것이 승인에 유리합니다.</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-
-    # --- 5. 하단 핵심 요약 ---
-    st.markdown("---")
-    st.subheader("📋 GFA 검수 패스 핵심 체크리스트")
-    
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.info("**✅ 이미지 품질**\n- RGB 모드 확인\n- JPG 형식 확인\n- 왜곡 없는 고화질")
-    with c2:
-        st.info("**✅ 문구 및 텍스트**\n- 폰트 크기 식별 가능 여부\n- 배경색과 글자색 대비 명확\n- 오타 및 맞춤법 체크")
-    with c3:
-        st.info("**✅ 랜딩페이지**\n- 이미지 내용과 랜딩 내용 일치\n- 성인물/도박 등 불법 컨텐츠 확인")
+        
+        st.info("💡 AI가 이미지의 텍스트 밀도와 캡처 구조를 분석하여 최적의 사유만 선별했습니다.")
 
 else:
-    st.info("왼쪽 사이드바에서 이미지를 업로드하면 즉시 검수 및 보류 사유 체크가 시작됩니다.")
+    st.info("왼쪽 사이드바에서 이미지를 업로드하면 소재의 맥락에 맞는 스마트 검수가 시작됩니다.")
