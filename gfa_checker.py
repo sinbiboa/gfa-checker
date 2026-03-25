@@ -1,13 +1,11 @@
 import streamlit as st
-import requests
 import io
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
-import easyocr
 import os
 
 # --- 1. 페이지 설정 및 가독성 디자인 (사이드바 강조) ---
-st.set_page_config(page_title="GFA AI Studio PRO", layout="wide")
+st.set_page_config(page_title="GFA 광고 편집기 PRO", layout="wide")
 
 st.markdown("""
     <style>
@@ -19,30 +17,15 @@ st.markdown("""
     /* 사이드바 라벨(제목) 스타일 */
     [data-testid="stSidebar"] label p {
         color: #FFFFFF !important;
-        font-size: 20px !important;
+        font-size: 18px !important;
         font-weight: 800 !important;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
-    /* 라디오 버튼 및 위젯 글자 스타일 */
+    /* 위젯 글자 스타일 */
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
         color: #FFFFFF !important;
-        font-size: 18px !important;
+        font-size: 16px !important;
         font-weight: 600 !important;
-    }
-    /* 사이드바 버튼 스타일 */
-    [data-testid="stSidebar"] .stButton button {
-        background-color: #333333;
-        color: #FFFFFF !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        height: 50px;
-        border-radius: 10px;
-        border: 2px solid #444444;
-        margin-bottom: 10px;
-    }
-    [data-testid="stSidebar"] .stButton button:hover {
-        border-color: #00C73C;
-        color: #00C73C !important;
     }
     /* 메인 타이틀 박스 */
     .main-title {
@@ -56,98 +39,98 @@ st.markdown("""
     </style>
     <div class="main-title">
         <h1>🎯 GFA 광고 마스터 PRO</h1>
-        <p>AI 이미지 생성 및 규격 자동 검수/리사이징 도구</p>
+        <p>이미지 업로드 및 대형 문구 합성 도구</p>
     </div>
     """, unsafe_allow_html=True)
 
-# --- 2. 메뉴 및 규격 데이터 설정 ---
-if 'menu' not in st.session_state:
-    st.session_state.menu = "🔍 규격 검수"
-
-# 모든 GFA 규격 리스트
+# --- 2. 상태 관리 및 규격 데이터 설정 ---
+# GFA 필수 규격 리스트
 AD_SPECS = {
-    "스마트채널 (1250x370)": {"w": 1250, "h": 370, "limit": 500},
-    "네이버 메인 (1250x560)": {"w": 1250, "h": 560, "limit": 500},
-    "피드형 (1200x628)": {"w": 1200, "h": 628, "limit": 500},
-    "1:1 규격 (1200x1200)": {"w": 1200, "h": 1200, "limit": 500},
-    "배너형 (342x228)": {"w": 342, "h": 228, "limit": 500}
+    "스마트채널 (1250x370)": {"w": 1250, "h": 370},
+    "네이버 메인 (1250x560)": {"w": 1250, "h": 560},
+    "피드형 (1200x628)": {"w": 1200, "h": 628},
+    "1:1 규격 (1200x1200)": {"w": 1200, "h": 1200},
+    "배너형 (342x228)": {"w": 342, "h": 228}
 }
 
-st.sidebar.markdown("<p style='color:white; font-size:22px; font-weight:bold;'>🛠️ 도구 선택</p>", unsafe_allow_html=True)
-if st.sidebar.button("🔍 GFA 규격 검수", use_container_width=True):
-    st.session_state.menu = "🔍 규격 검수"
-if st.sidebar.button("🎨 AI 이미지 생성/편집", use_container_width=True):
-    st.session_state.menu = "🎨 이미지 제작"
+# 세션 상태 초기화 (업로드된 배경 이미지 저장)
+if 'uploaded_bg' not in st.session_state:
+    st.session_state.uploaded_bg = None
+
+# --- 3. 사이드바 설정 영역 (요청하신 기능만 배치) ---
+st.sidebar.markdown("<p style='color:white; font-size:20px; font-weight:bold;'>🛠️ 편집 설정</p>", unsafe_allow_html=True)
+
+# 📍 1. 규격 및 이미지 불러오기 (image_uploader)
+st.sidebar.subheader("📍 1. 이미지 불러오기")
+selected_ad = st.sidebar.selectbox("GFA 광고 규격 선택", list(AD_SPECS.keys()))
+gen_spec = AD_SPECS[selected_ad]
+
+# 이미지 업로드 위젯
+uploaded_file = st.sidebar.file_uploader("배경 이미지를 올려주세요", type=['jpg', 'png', 'jpeg'])
+
+if uploaded_file:
+    # 이미지를 PIL 객체로 변환하여 세션에 저장
+    image = Image.open(uploaded_file).convert("RGB")
+    # 선택한 GFA 규격으로 자동 리사이징 (고품질)
+    st.session_state.uploaded_bg = image.resize((gen_spec['w'], gen_spec['h']), Image.Resampling.LANCZOS)
 
 st.sidebar.markdown("---")
 
-# --- 3. 메인 기능 로직 ---
+# ✍️ 2. 텍스트 입력 및 크기 (text_input / slider)
+st.sidebar.subheader("✍️ 2. 문구 합성")
+ad_text = st.sidebar.text_input("합성할 문구 입력", "야, 너도 GFA 할 수 있어!")
+# text_color = st.sidebar.color_picker("글자 색상", "#FFFFFF") # 색상 선택 삭제
 
-# [메뉴 1: 규격 검수] (규격 확인 및 리사이징 기능 탑재!)
-if st.session_state.menu == "🔍 규격 검수":
-    st.header("🔍 GFA 광고 규격 및 비중 검수")
-    st.write("이미지를 올려 규격이 맞는지 확인하고, 필요시 자동으로 리사이징하세요.")
+# 🌟 글자 크기 조절 슬라이더 (초대형 가능: 20 ~ 1,000,000)
+text_size = st.sidebar.slider("글자 크기 (초대형 가능)", 20, 1000000, 200)
+
+st.sidebar.info("💡 **팁:** 문구는 배경 이미지의 정중앙에 자동으로 위치합니다.")
+
+# --- 4. 메인 편집 및 미리 보기 영역 ---
+st.header("📷 광고 미리 보기 및 편집")
+
+#업로드된 배경이 있을 때만 편집기 작동
+if st.session_state.uploaded_bg:
+    # 실시간 미리 보기를 위해 배경 이미지 복사
+    final_img = st.session_state.uploaded_bg.copy()
+    draw = ImageDraw.Draw(final_img)
     
-    # 카테고리 선택 (기존처럼)
-    selected_ad = st.sidebar.selectbox("검수할 광고 유형", list(AD_SPECS.keys()))
-    spec = AD_SPECS[selected_ad]
-    
-    # OCR 모델 로딩 (캐싱 처리)
-    @st.cache_resource
-    def load_ocr():
-        return easyocr.Reader(['ko', 'en'], gpu=False)
-    
-    reader = load_ocr()
-    
-    uploaded_file = st.file_uploader(f"[{selected_ad}] 이미지를 업로드하세요", type=['jpg', 'png', 'jpeg'])
-    
-    if uploaded_file:
-        img = Image.open(uploaded_file)
-        w, h = img.size
+    # 윈도우 기본 폰트(Arial) 설정 - 크기 조절 가능
+    font_path = "C:\\Windows\\Fonts\\arial.ttf" # 윈도우 기본 폰트 경로
+    try:
+        if os.path.exists(font_path):
+            # 슬라이더에서 받은 초거대 text_size를 폰트 크기로 지정
+            font = ImageFont.truetype(font_path, text_size)
+        else:
+            font = ImageFont.load_default()
+    except:
+        font = ImageFont.load_default()
         
-        col_view, col_report = st.columns([1.5, 1])
+    # 문구를 배경 이미지의 정중앙(anchor="mm")에 합성
+    # 색상은 흰색(#FFFFFF)으로 고정
+    draw.text((gen_spec['w'] // 2, gen_spec['h'] // 2), ad_text, fill="#FFFFFF", font=font, anchor="mm")
+    
+    # 미리 보기 이미지 출력
+    st.image(final_img, use_container_width=True, caption=f"최종 규격: {gen_spec['w']}x{gen_spec['h']}")
+    
+    # --- 5. 다운로드 세션 ---
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        # 다운로드용 버퍼 생성
+        buf = io.BytesIO()
+        # GFA 가이드에 맞춰 JPEG 품질 95%로 저장
+        final_img.save(buf, format="JPEG", quality=95)
         
-        with col_report:
-            st.subheader("📝 검수 리포트")
-            st.write(f"**대상 규격:** {selected_ad}")
-            st.write(f"**현재 해상도:** {w}x{h}")
-            
-            # 🌟 1. 규격 확인 로직
-            if w == spec['w'] and h == spec['h']:
-                st.success(f"✅ 해상도가 규격과 일치합니다.")
-            else:
-                st.error(f"❌ 해상도가 불일치합니다. (권장: {spec['w']}x{spec['h']})")
-                
-                # 🌟 2. 리사이징 기능 추가
-                st.info(f"아래 버튼을 누르면 업로드한 이미지를 {spec['w']}x{spec['h']} 규격으로 자동 리사이징합니다.")
-                if st.button("🔄 이미지 자동 리사이징 및 다운로드", use_container_width=True):
-                    with st.spinner("이미지 크기를 조절하는 중입니다..."):
-                        # LANCZOS 필터를 사용하여 고품질 리사이징
-                        resized_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
-                        
-                        # 다운로드용 버퍼 생성
-                        buf = io.BytesIO()
-                        # GFA 가이드에 맞춰 용량 압축 (JPEG 품질 85% 권장)
-                        resized_img.convert("RGB").save(buf, format="JPEG", quality=85)
-                        
-                        st.download_button(
-                            label=f"📥 리사이징된 {selected_ad} 이미지 다운로드",
-                            data=buf.getvalue(),
-                            file_name=f"fixed_{selected_ad}.jpg",
-                            mime="image/jpeg",
-                            use_container_width=True
-                        )
-                        st.success(f"변환 완료! 다운로드 후 사용하세요.")
-
-            st.markdown("---")
-            # (여기에 OCR 텍스트 비중 분석 로직이 포함됩니다)
-            st.info("AI가 텍스트 비중을 분석하고 있습니다... (준비 중)")
-            
-        with col_view:
-            st.subheader("📷 업로드 이미지 미리 보기")
-            st.image(img, use_container_width=True, caption=f"현재 크기: {w}x{h}")
-
-# [메뉴 2: 이미지 제작] (기존 로직 유지)
-elif st.session_state.menu == "🎨 이미지 제작":
-    st.header("🎨 AI 이미지 생성 및 문구 합성")
-    # (이미지 제작 로직은 이전과 동일하게 유지됩니다)
+        st.download_button(
+            label="📥 완성된 GFA 이미지 다운로드",
+            data=buf.getvalue(),
+            file_name=f"GFA_{selected_ad}.jpg",
+            mime="image/jpeg",
+            use_container_width=True
+        )
+else:
+    # 배경이 없을 때 가이드 메시지
+    st.info("왼쪽 사이드바에서 [배경 이미지]를 업로드하면 편집 화면이 나타납니다.")
+    # 플레이스홀더 이미지
+    st.image("https://via.placeholder.com/1250x370.png?text=Upload+Your+Background+Image", use_container_width=True)
