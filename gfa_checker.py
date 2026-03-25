@@ -6,31 +6,11 @@ import os
 # --- 1. 페이지 설정 및 디자인 ---
 st.set_page_config(page_title="GFA 규격 마스터", layout="wide")
 
-# 사이드바 및 메인 타이틀 디자인
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        background-color: #111111;
-        color: white !important;
-    }
-    [data-testid="stSidebar"] label p {
-        color: white !important;
-        font-size: 16px !important;
-        font-weight: bold;
-    }
-    .main-title {
-        background-color: #00C73C;
-        padding: 20px;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    .result-box {
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
+    [data-testid="stSidebar"] { background-color: #111111; color: white !important; }
+    [data-testid="stSidebar"] label p { color: white !important; font-size: 16px !important; font-weight: bold; }
+    .main-title { background-color: #00C73C; padding: 20px; border-radius: 15px; color: white; text-align: center; margin-bottom: 30px; }
     </style>
     <div class="main-title">
         <h1>🎯 GFA 광고 규격 마스터</h1>
@@ -59,31 +39,25 @@ st.sidebar.write(f"✅ **선택 규격:** {spec['w']} x {spec['h']} px")
 
 # --- 4. 메인 검수 로직 ---
 if uploaded_file:
-    # 이미지 열기
     img = Image.open(uploaded_file)
     w, h = img.size
     
     st.subheader(f"📷 이미지 검수 리포트: {selected_ad}")
     
-    # 규격 일치 확인 및 처리
     col1, col2 = st.columns([2, 1])
     
     with col2:
         st.markdown("### 📝 검수 결과")
         if w == spec['w'] and h == spec['h']:
-            st.success(f"✅ **규격 완벽 일치!**\n\n현재 이미지: {w}x{h}\n권장 규격: {spec['w']}x{spec['h']}")
+            st.success(f"✅ **규격 완벽 일치!**\n\n현재 이미지: {w}x{h}")
             final_img = img
             download_label = "📥 원본 이미지 다운로드 (JPG)"
         else:
-            st.warning(f"⚠️ **규격 불일치**\n\n현재 이미지: {w}x{h}\n권장 규격: {spec['w']}x{spec['h']}")
-            st.info("아래 버튼을 누르면 권장 규격으로 자동 리사이징됩니다.")
-            # 고품질 리사이징 수행
+            st.warning(f"⚠️ **규격 불일치**\n\n현재: {w}x{h} / 권장: {spec['w']}x{spec['h']}")
             final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
-            download_label = "📥 규격에 맞춰 리사이징 후 다운로드"
+            download_label = "📥 리사이징 후 다운로드"
 
-        # 다운로드 버튼 생성
         buf = io.BytesIO()
-        # GFA 가이드(JPG/RGB)에 맞춰 변환 후 저장
         final_img.convert("RGB").save(buf, format="JPEG", quality=95)
         
         st.download_button(
@@ -95,17 +69,16 @@ if uploaded_file:
         )
 
     with col1:
-        # 미리보기 이미지 출력
-        st.image(final_img, use_container_width=True, caption=f"미리보기: {final_img.size[0]}x{final_img.size[1]} (최적화 완료)")
+        st.image(final_img, use_container_width=True, caption=f"미리보기: {final_img.size[0]}x{final_img.size[1]}")
 
 else:
-    # 업로드 전 가이드 화면
-    st.info("왼쪽 사이드바에서 이미지를 업로드하면 즉시 검수 및 규격 최적화가 시작됩니다.")
-    st.image("https://via.placeholder.com/1250x370.png?text=Please+Upload+Your+GFA+Image", use_container_width=True)
+    st.info("왼쪽 사이드바에서 이미지를 업로드하면 검수 및 최적화가 시작됩니다.")
 
-# --- 5. 추가 가이드 ---
+# --- 5. 추가 가이드 (에러 발생 구간 수정) ---
 st.markdown("---")
 with st.expander("💡 GFA 광고 이미지 제작 팁"):
     st.write("""
     1. **파일 형식:** 네이버 GFA는 기본적으로 JPG 형식을 권장하며, RGB 색상 모드여야 합니다.
-    2. **용량 제한
+    2. **용량 제한:** 이미지당 500KB 이하로 제작하는 것이 가장 안정적입니다.
+    3. **텍스트 비중:** 가급적 텍스트가 전체 면적의 20%를 넘지 않도록 배치하세요.
+    """)
