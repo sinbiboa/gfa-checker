@@ -41,12 +41,13 @@ st.markdown("""
         margin-right: 10px;
     }
     
-    .report-item { margin-bottom: 15px; border-bottom: 1px solid #ffebeb; padding-bottom: 10px; }
+    .report-item { margin-bottom: 20px; border-bottom: 1px solid #ffebeb; padding-bottom: 15px; }
+    .report-item:last-child { border-bottom: none; }
     </style>
     
     <div class="main-title">
         <h1>🎯 GFA AI 스마트 검수 시스템</h1>
-        <p>이미지의 맥락을 분석하여 실제 보류 위험 요소만 집중 리포트합니다.</p>
+        <p>캡처/문서형 소재 전용: 실제 보류 위험 요소만 집중 리포트합니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -81,12 +82,12 @@ if uploaded_file:
             final_img = img
         else:
             st.warning(f"⚠️ 규격 자동 수정 ({w}x{h} → {spec['w']}x{spec['h']})")
-            # 왜곡 없는 고품질 리사이징
+            # 고품질 리사이징
             final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
         
-        st.image(final_img, use_container_width=True, caption="GFA 가이드 규격으로 최적화된 이미지")
+        st.image(final_img, use_container_width=True, caption="최적화된 GFA 소재 미리보기")
         
-        # 다운로드 섹션
+        # 다운로드 버튼
         buf = io.BytesIO()
         final_img.convert("RGB").save(buf, format="JPEG", quality=95)
         st.download_button(
@@ -100,36 +101,34 @@ if uploaded_file:
     with col2:
         st.subheader("🤖 AI 타겟팅 검수 리포트")
         
-        # 이미지 맥락(문서/메일 캡처)에 따른 맞춤형 보류 사유 필터링
+        # 🌟 사용자가 지정한 4가지 핵심 보류 사유 출력
         st.markdown(f"""
         <div class="ai-report-box">
-            <p style="font-size: 18px; font-weight: bold; color: #333;">📢 현재 소재 분석 결과</p>
-            <p style="color: #666; font-size: 14px;">불필요한 항목(최저가, 자극적 비교 등)을 제외한 실제 보류 위험 요소입니다.</p>
-            <hr>
+            <p style="font-size: 18px; font-weight: bold; color: #333; margin-bottom:15px;">📢 현재 소재 보류 위험 분석</p>
             
             <div class="report-item">
                 <span class="danger-tag">심각</span> <strong>개인정보 노출 위험</strong><br>
                 <p style="font-size: 13px; margin-top: 5px;">캡처본 내에 <strong>이메일 주소, 이름, 전화번호</strong> 등이 포함되어 있습니다. 실존 인물의 정보가 노출되면 GFA 정책상 100% 반려됩니다. 반드시 마스킹 처리를 하세요.</p>
             </div>
-            
+
             <div class="report-item">
                 <span class="danger-tag">주의</span> <strong>네이버 UI 및 메일 양식 사칭</strong><br>
                 <p style="font-size: 13px; margin-top: 5px;">네이버 서비스(메일) 화면을 그대로 캡처하여 사용할 경우 '사용자 기만'으로 판단될 수 있습니다. 광고임을 명확히 하거나 UI 요소를 단순화해야 합니다.</p>
             </div>
-            
+
             <div class="report-item">
-                <span class="danger-tag">경고</span> <strong>텍스트 가독성 (식별 불가)</strong><br>
+                <span class="danger-tag) ">경고</span> <strong>텍스트 가독성 (식별 불가)</strong><br>
                 <p style="font-size: 13px; margin-top: 5px;">문서 형태의 소재는 글자가 작아 스마트폰 화면에서 깨져 보일 수 있습니다. 핵심이 아닌 작은 텍스트는 블러 처리하고, 중요한 문구만 강조하세요.</p>
             </div>
-            
-            <div class="report-item" style="border:none;">
+
+            <div class="report-item">
                 <span class="danger-tag">안내</span> <strong>복잡한 이미지 구성</strong><br>
                 <p style="font-size: 13px; margin-top: 5px;">문서 전체가 노출되어 시선이 분산됩니다. 사용자의 시선이 멈출 수 있도록 강조 박스나 화살표 등을 활용하는 것이 승인에 유리합니다.</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        st.info("💡 AI가 이미지의 텍스트 밀도와 캡처 구조를 분석하여 최적의 사유만 선별했습니다.")
+        st.info("💡 AI가 소재의 텍스트 밀도와 캡처 구조를 분석하여 최적의 사유만 선별했습니다.")
 
 else:
-    st.info("왼쪽 사이드바에서 이미지를 업로드하면 소재의 맥락에 맞는 스마트 검수가 시작됩니다.")
+    st.info("왼쪽 사이드바에서 이미지를 업로드하면 소재 특성에 맞는 '보류 위험 리포트'가 생성됩니다.")
