@@ -12,7 +12,7 @@ st.set_page_config(page_title="GFA 마스터 검수기", layout="wide")
 st.markdown("""
     <style>
     [data-testid="stHeader"] {
-        background-image: url("https://raw.githubusercontent.com/sinbiboa/gfa-checker/main/header_bg.jpg");
+        background-image: url("https://raw.githubusercontent.com/sinbiboa/gfa-checker/main/header_bg.png");
         background-size: contain;
         background-position: top center;
         background-repeat: no-repeat;
