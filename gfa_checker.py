@@ -1,106 +1,105 @@
 import streamlit as st
 import io
 from PIL import Image, ImageDraw, ImageFont
-import numpy as np
 import os
-from streamlit_image_coordinates import streamlit_image_coordinates
 
-# --- 1. 페이지 설정 ---
-st.set_page_config(page_title="GFA 멀티 편집기", layout="wide")
+# --- 1. 페이지 설정 및 디자인 ---
+st.set_page_config(page_title="GFA 통합 마스터 PRO", layout="wide")
 
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { background-color: #111111; color: white !important; }
-    .main-title { background-color: #00C73C; padding: 15px; border-radius: 10px; color: white; text-align: center; }
+    [data-testid="stSidebar"] label p { color: white !important; font-size: 15px !important; font-weight: bold; }
+    .main-title { background-color: #00C73C; padding: 15px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px; }
     </style>
-    <div class="main-title"><h1>🎯 GFA 멀티 텍스트 마스터</h1></div>
+    <div class="main-title"><h1>🎯 GFA 광고 마스터 PRO</h1></div>
     """, unsafe_allow_html=True)
 
-# --- 2. 상태 관리 ---
-if 'menu' not in st.session_state: st.session_state.menu = "🎨 문구 합성"
-# 텍스트 1, 2, 3의 좌표 저장
-if 'pos1' not in st.session_state: st.session_state.pos1 = (625, 100)
-if 'pos2' not in st.session_state: st.session_state.pos2 = (625, 200)
-if 'pos3' not in st.session_state: st.session_state.pos3 = (625, 300)
-
-# --- 3. 폰트 함수 ---
+# --- 2. 폰트 로드 함수 ---
 def get_font(size):
-    size = max(1, size)
+    actual_size = max(1, size)
+    # 1순위: GitHub에 업로드한 맑은고딕 사용
     if os.path.exists("malgun.ttf"):
-        return ImageFont.truetype("malgun.ttf", size)
+        return ImageFont.truetype("malgun.ttf", actual_size)
+    # 2순위: 시스템 폰트 시도
+    if os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+        return ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", actual_size)
     return ImageFont.load_default()
 
-# --- 4. 메인 로직 ---
-st.sidebar.header("🛠️ 메뉴")
-if st.sidebar.button("🔍 규격 검수"): st.session_state.menu = "🔍 규격 검수"
-if st.sidebar.button("🎨 문구 합성"): st.session_state.menu = "🎨 문구 합성"
+# --- 3. GFA 규격 데이터 ---
+AD_SPECS = {
+    "스마트채널 (1250x370)": {"w": 1250, "h": 370},
+    "네이버 메인 (1250x560)": {"w": 1250, "h": 560},
+    "피드형 (1200x628)": {"w": 1200, "h": 628},
+    "1:1 규격 (1200x1200)": {"w": 1200, "h": 1200},
+    "배너형 (342x228)": {"w": 342, "h": 228}
+}
 
-if st.session_state.menu == "🔍 규격 검수":
-    st.header("🔍 GFA 규격 검수")
-    # ... (기존 검수 코드 생략) ...
-    st.info("검수 기능은 기존과 동일하게 작동합니다.")
+# --- 4. 사이드바 설정 ---
+st.sidebar.header("📂 1. 이미지 및 규격")
+selected_ad = st.sidebar.selectbox("GFA 규격 선택", list(AD_SPECS.keys()))
+spec = AD_SPECS[selected_ad]
 
-elif st.session_state.menu == "🎨 문구 합성":
-    st.sidebar.subheader("📍 위치 수정 대상")
-    edit_target = st.sidebar.radio("클릭 시 이동할 텍스트 선택", ["텍스트 1", "텍스트 2", "텍스트 3"])
+uploaded_file = st.sidebar.file_uploader("배경 이미지 업로드", type=['jpg', 'png', 'jpeg'], key="main_upload")
 
-    st.sidebar.markdown("---")
-    
-    # 텍스트 1 설정
-    st.sidebar.subheader("📝 텍스트 1")
-    txt1 = st.sidebar.text_input("내용 1", "첫 번째 문구")
-    col1_1, col1_2 = st.sidebar.columns(2)
-    clr1 = col1_1.color_picker("색상 1", "#FFFFFF", key="c1")
-    siz1 = col1_2.slider("크기 1", 0, 150, 60, key="s1")
+st.sidebar.markdown("---")
+st.sidebar.header("✍️ 2. 텍스트 설정 (최대 3개)")
 
-    # 텍스트 2 설정
-    st.sidebar.subheader("📝 텍스트 2")
-    txt2 = st.sidebar.text_input("내용 2", "")
-    col2_1, col2_2 = st.sidebar.columns(2)
-    clr2 = col2_1.color_picker("색상 2", "#FFFFFF", key="c2")
-    siz2 = col2_2.slider("크기 2", 0, 150, 40, key="s2")
+# 텍스트 1 설정
+with st.sidebar.expander("📝 텍스트 1 (Main)", expanded=True):
+    txt1 = st.text_input("내용 1", "첫 번째 문구")
+    clr1 = st.color_picker("색상 1", "#FFFFFF", key="c1")
+    siz1 = st.slider("크기 1", 0, 150, 60, key="s1") # 🚀 0~150 제한
+    x1 = st.slider("가로 위치 1", 0, spec['w'], spec['w']//2, key="x1")
+    y1 = st.slider("세로 위치 1", 0, spec['h'], 100, key="y1")
 
-    # 텍스트 3 설정
-    st.sidebar.subheader("📝 텍스트 3")
-    txt3 = st.sidebar.text_input("내용 3", "")
-    col3_1, col3_2 = st.sidebar.columns(2)
-    clr3 = col3_1.color_picker("색상 3", "#FFFFFF", key="c3")
-    siz3 = col3_2.slider("크기 3", 0, 150, 30, key="s3")
+# 텍스트 2 설정
+with st.sidebar.expander("📝 텍스트 2 (Sub)"):
+    txt2 = st.text_input("내용 2", "")
+    clr2 = st.color_picker("색상 2", "#FFFFFF", key="c2")
+    siz2 = st.slider("크기 2", 0, 150, 40, key="s2") # 🚀 0~150 제한
+    x2 = st.slider("가로 위치 2", 0, spec['w'], spec['w']//2, key="x2")
+    y2 = st.slider("세로 위치 2", 0, spec['h'], 200, key="y2")
 
-    uploaded_bg = st.sidebar.file_uploader("배경 이미지 업로드", type=['jpg', 'png', 'jpeg'])
+# 텍스트 3 설정
+with st.sidebar.expander("📝 텍스트 3 (Extra)"):
+    txt3 = st.text_input("내용 3", "")
+    clr3 = st.color_picker("색상 3", "#FFFFFF", key="c3")
+    siz3 = st.slider("크기 3", 0, 150, 30, key="s3") # 🚀 0~150 제한
+    x3 = st.slider("가로 위치 3", 0, spec['w'], spec['w']//2, key="x3")
+    y3 = st.slider("세로 위치 3", 0, spec['h'], 300, key="y3")
 
-    if uploaded_bg:
-        img = Image.open(uploaded_bg).convert("RGB")
-        # 현재 선택된 규격(예: 1250x560)으로 리사이징 과정은 생략(이미지 그대로 사용)
-        canvas = img.copy()
+# --- 5. 메인 로직 ---
+if uploaded_file:
+    try:
+        # 이미지 로드 및 리사이징
+        img = Image.open(uploaded_file).convert("RGB")
+        canvas = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
         draw = ImageDraw.Draw(canvas)
 
-        # 텍스트 1 그리기
-        if txt1:
-            draw.text(st.session_state.pos1, txt1, fill=clr1, font=get_font(siz1), anchor="mm")
-        # 텍스트 2 그리기
-        if txt2:
-            draw.text(st.session_state.pos2, txt2, fill=clr2, font=get_font(siz2), anchor="mm")
-        # 텍스트 3 그리기
+        # 텍스트 합성
         if txt3:
-            draw.text(st.session_state.pos3, txt3, fill=clr3, font=get_font(siz3), anchor="mm")
+            draw.text((x3, y3), txt3, fill=clr3, font=get_font(siz3), anchor="mm")
+        if txt2:
+            draw.text((x2, y2), txt2, fill=clr2, font=get_font(siz2), anchor="mm")
+        if txt1:
+            draw.text((x1, y1), txt1, fill=clr1, font=get_font(siz1), anchor="mm")
 
-        st.info(f"💡 현재 **[{edit_target}]** 이동 모드입니다. 이미지 위를 클릭하세요.")
-        
-        # 마우스 클릭 처리
-        img_arr = np.array(canvas)
-        value = streamlit_image_coordinates(img_arr, key="gfa_editor", use_container_width=True)
+        # 결과 출력
+        st.subheader("📷 광고 미리보기")
+        st.image(canvas, use_container_width=True)
 
-        if value:
-            new_pos = (value["x"], value["y"])
-            if edit_target == "텍스트 1": st.session_state.pos1 = new_pos
-            elif edit_target == "텍스트 2": st.session_state.pos2 = new_pos
-            elif edit_target == "텍스트 3": st.session_state.pos3 = new_pos
-            st.rerun()
-
-        # 다운로드
+        # 다운로드 버튼
         buf = io.BytesIO()
         canvas.save(buf, format="JPEG", quality=95)
-        st.download_button("📥 최종 이미지 다운로드", buf.getvalue(), "gfa_final.jpg", "image/jpeg", use_container_width=True)
-    else:
-        st.info("사이드바에서 배경 이미지를 업로드해 주세요.")
+        st.download_button(
+            "📥 이미지 다운로드", 
+            buf.getvalue(), 
+            f"gfa_{selected_ad}.jpg", 
+            "image/jpeg", 
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"이미지를 처리하는 중 오류가 발생했습니다: {e}")
+else:
+    st.info("왼쪽 사이드바에서 이미지를 업로드해 주세요.")
