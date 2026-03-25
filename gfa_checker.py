@@ -1,19 +1,42 @@
 import streamlit as st
 import io
 from PIL import Image
-import os
+import google.generativeai as genai
 
-# --- 1. 페이지 설정 ---
-st.set_page_config(page_title="GFA AI 스마트 검수기", layout="wide")
+# --- 1. Gemini API 설정 (발급받으신 키 적용) ---
+API_KEY = "gen-lang-client-0676390931"
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
+
+# --- 2. 페이지 설정 및 디자인 ---
+st.set_page_config(page_title="GFA Gemini 검수 AI", layout="wide")
 
 st.markdown("""
-    <div style="background-color: #00C73C; padding: 20px; border-radius: 15px; color: white; text-align: center; margin-bottom: 30px;">
-        <h1 style="margin:0;">🎯 GFA AI 스마트 검수 시스템</h1>
-        <p style="margin:5px 0 0 0;">이미지 변경 시 검수 항목이 실시간으로 동기화됩니다.</p>
+    <style>
+    [data-testid="stSidebar"] { background-color: #111111; color: white !important; }
+    .main-title { 
+        background-color: #00C73C; 
+        padding: 20px; 
+        border-radius: 15px; 
+        color: white; 
+        text-align: center; 
+        margin-bottom: 30px; 
+    }
+    .report-container {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #00C73C;
+        line-height: 1.6;
+    }
+    </style>
+    <div class="main-title">
+        <h1>🎯 Gemini 실시간 GFA 검수 AI</h1>
+        <p>Gemini가 직접 이미지를 분석하여 4대 보류 사유를 체크합니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
-# --- 2. 규격 데이터 ---
+# --- 3. GFA 규격 데이터 ---
 AD_SPECS = {
     "스마트채널 (1250x370)": {"w": 1250, "h": 370},
     "네이버 메인 (1250x560)": {"w": 1250, "h": 560},
@@ -22,31 +45,24 @@ AD_SPECS = {
     "배너형 (342x228)": {"w": 342, "h": 228}
 }
 
-# --- 3. 사이드바 ---
+# --- 4. 사이드바 구성 ---
 st.sidebar.header("📂 이미지 업로드")
-selected_ad = st.sidebar.selectbox("검토할 GFA 규격 선택", list(AD_SPECS.keys()))
+selected_ad = st.sidebar.selectbox("GFA 규격 선택", list(AD_SPECS.keys()))
 spec = AD_SPECS[selected_ad]
 
-# 파일이 바뀔 때 리포트를 갱신하기 위한 key 설정
-uploaded_file = st.sidebar.file_uploader("검수할 이미지를 업로드하세요", type=['jpg', 'png', 'jpeg'], key="gfa_image_loader")
+uploaded_file = st.sidebar.file_uploader("검수할 이미지를 선택하세요", type=['jpg', 'png', 'jpeg'])
 
-# --- 4. 메인 실행 로직 ---
+# --- 5. 메인 실행 로직 ---
 if uploaded_file:
-    # 새로운 파일이 들어오면 세션 상태 초기화
+    # 이미지 로드
     img = Image.open(uploaded_file)
-    w, h = img.size
     
-    col1, col2 = st.columns([1.6, 1])
+    col1, col2 = st.columns([1.5, 1])
     
     with col1:
-        st.subheader("📷 규격 검수 결과")
-        if w == spec['w'] and h == spec['h']:
-            st.success(f"✅ 규격 완벽 일치 ({w}x{h})")
-            final_img = img
-        else:
-            st.warning(f"⚠️ 규격 자동 수정 ({w}x{h} → {spec['w']}x{spec['h']})")
-            final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
-        
+        st.subheader("📷 규격 최적화 미리보기")
+        # 고품질 리사이징
+        final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
         st.image(final_img, use_container_width=True)
         
         # 다운로드 버튼
@@ -55,37 +71,44 @@ if uploaded_file:
         st.download_button(
             label="📥 GFA 최적화 이미지 다운로드",
             data=buf.getvalue(),
-            file_name=f"GFA_CHECKED_{spec['w']}x{spec['h']}.jpg",
+            file_name=f"GFA_READY_{spec['w']}x{spec['h']}.jpg",
             mime="image/jpeg",
             use_container_width=True
         )
 
     with col2:
-        st.subheader("🤖 소재별 맞춤 검수 리포트")
+        st.subheader("🤖 Gemini AI 실시간 분석")
         
-        # 🌟 이미지가 업로드될 때마다 해당 시점의 리포트를 새로 렌더링
-        st.info("💡 **새 이미지가 감지되었습니다.** 소재 유형에 맞춰 아래 항목을 최종 체크하세요.")
-        
-        # 실제 보류 가능성이 높은 항목만 동적으로 표시 (내장 위젯 방식)
-        with st.expander("🚨 심각: 개인정보 노출 (필수 확인)", expanded=True):
-            st.error("**개인정보 노출 위험**")
-            st.write("이미지 내에 이메일 주소, 실명, 전화번호가 포함되어 있나요? 있다면 반드시 마스킹 처리해야 승인됩니다.")
-            st.checkbox("확인 완료", key="check1")
+        with st.spinner("Gemini가 이미지를 정밀 분석 중입니다..."):
+            try:
+                # 🌟 Gemini에게 보내는 맞춤형 프롬프트
+                prompt = """
+                너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류(반려)' 사유가 있는지 아주 깐깐하게 분석해줘.
+                특히 아래 4가지 항목에 대해서만 집중해서 대답해줘:
 
-        with st.expander("⚠️ 주의: 시스템 UI 사칭", expanded=True):
-            st.warning("**네이버 UI 및 메일 양식**")
-            st.write("네이버 시스템 화면을 그대로 썼을 경우 '사용자 기만' 사유로 보류될 수 있습니다.")
-            st.checkbox("확인 완료", key="check2")
+                1. 개인정보 노출: 이메일 주소, 실명, 전화번호 등이 마스킹 없이 포함되어 있는가?
+                2. UI 사칭: 네이버 메인, 메일함 양식 등을 그대로 써서 사용자를 기만하는가?
+                3. 가독성: 텍스트가 너무 작거나 흐릿해서 식별이 어려운가?
+                4. 구성: 문서 전체가 노출되어 시선이 너무 분산되는가?
 
-        with st.expander("🚩 경고: 가독성 저하", expanded=True):
-            st.info("**텍스트 식별 불가**")
-            st.write("모바일 환경에서 글자가 너무 작아 깨져 보이지 않는지 확인하세요. 캡처본은 특히 주의가 필요합니다.")
-            st.checkbox("확인 완료", key="check3")
-
-        with st.expander("💡 안내: 구성 복잡도", expanded=False):
-            st.success("**이미지 구성 최적화**")
-            st.write("문서 전체가 노출되어 시선이 분산된다면 핵심 문구에 강조 박스를 추가하는 것을 추천합니다.")
-            st.checkbox("확인 완료", key="check4")
+                각 항목별로 [심각], [주의], [경고], [안내] 태그를 붙여서 설명해주고, 
+                반려될 가능성이 높은 부분은 강조해서 말해줘. 
+                만약 깨끗하다면 '승인 가능성이 매우 높습니다'라고 마무리해줘.
+                """
+                
+                # AI 분석 실행
+                response = model.generate_content([prompt, img])
+                
+                # 분석 결과 출력 박스
+                st.markdown(f"""
+                <div class="report-container">
+                    {response.text.replace("\n", "<br>")}
+                </div>
+                """, unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"AI 분석 중 오류가 발생했습니다: {e}")
+                st.info("API 키가 활성화될 때까지 1~2분 정도 소요될 수 있습니다.")
 
 else:
-    st.info("왼쪽 사이드바에서 이미지를 업로드하면 해당 소재에 대한 새로운 검수 리포트가 생성됩니다.")
+    st.info("왼쪽 사이드바에서 이미지를 업로드하면 Gemini AI가 즉시 분석을 시작합니다.")
