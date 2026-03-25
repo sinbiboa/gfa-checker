@@ -10,7 +10,7 @@ st.markdown(f"""
     <style>
     /* 상단 헤더 부분 배경 설정 */
     [data-testid="stHeader"] {{
-        background-image: url("https://raw.githubusercontent.com/{sinbiboa_GITHUB_ID}/gfa-checker/main/header_bg.jpg"); /* 본인 아이디로 수정 필수! */
+        background-image: url("https://raw.githubusercontent.com/{YOUR_GITHUB_sinbiboa}/gfa-checker/main/header_bg.jpg"); /* 본인 아이디로 수정 필수! */
         background-size: contain; /* 이미지가 잘리지 않고 전체가 보이도록 수정 */
         background-position: top center; /* 상단 가운데 정렬 */
         background-repeat: no-repeat; /* 반복 없음 */
