@@ -3,9 +3,11 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import os
+# 🌟 필수: 이미지 드래그 좌표 라이브러리 임포트
+from streamlit_image_coordinates import streamlit_image_coordinates
 
 # --- 1. 페이지 설정 및 가독성 디자인 (사이드바 강조) ---
-st.set_page_config(page_title="GFA 클릭 편집기 PRO", layout="wide")
+st.set_page_config(page_title="GFA 드래그 편집기 PRO", layout="wide")
 
 st.markdown("""
     <style>
@@ -39,7 +41,7 @@ st.markdown("""
     </style>
     <div class="main-title">
         <h1>🎯 GFA 광고 마스터 PRO</h1>
-        <p>마우스 클릭 위치 조절 및 초거대 문자 합성 도구</p>
+        <p>마우스 드래그 위치 조절 및 초거대 문자 합성 도구</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -56,7 +58,7 @@ AD_SPECS = {
 # 세션 상태 초기화
 if 'uploaded_bg' not in st.session_state:
     st.session_state.uploaded_bg = None
-# 🌟 클릭 위치 저장을 위한 상태 추가 (초기값은 정중앙)
+# 🌟 드래그 위치 저장을 위한 상태 추가 (초기값은 정중앙)
 if 'text_pos' not in st.session_state:
     st.session_state.text_pos = (0, 0) # (x, y) 좌표
 
@@ -89,12 +91,10 @@ text_color = st.sidebar.color_picker("글자 색상", "#FFFFFF")
 # 🌟 글자 크기 조절 슬라이더 (한계 돌파! 20 ~ 1,000,000)
 text_size = st.sidebar.slider("글자 크기 (실시간 반영)", 20, 1000000, 150)
 
-# 🌟 상하/좌우 위치 조절 슬라이더 삭제 완료!
+st.sidebar.info("💡 **팁:** 오른쪽 미리 보기 화면에서 문구를 마우스로 꾹 누른 채 드래그하여 위치를 조절하세요.")
 
-st.sidebar.info("💡 **팁:** 오른쪽 미리 보기 화면에서 원하는 곳을 마우스로 클릭하여 문구 위치를 조절하세요.")
-
-# --- 4. 메인 편집 및 미리 보기 영역 (클릭 기능 핵심) ---
-st.header("📷 광고 미리 보기 및 클릭 편집")
+# --- 4. 메인 편집 및 미리 보기 영역 (드래그 기능 핵심) ---
+st.header("📷 광고 미리 보기 및 드래그 편집")
 
 if st.session_state.uploaded_bg:
     # 실시간 미리 보기를 위해 배경 이미지 복사
@@ -112,31 +112,42 @@ if st.session_state.uploaded_bg:
     except:
         font = ImageFont.load_default()
         
-    # anchor="mm"는 클릭한 좌표가 글자의 정중앙을 의미하게 하여 직관적인 이동이 가능하게 합니다.
+    # anchor="mm"는 드래그한 좌표가 글자의 정중앙을 의미하게 하여 직관적인 이동이 가능하게 합니다.
     draw.text(st.session_state.text_pos, ad_text, fill=text_color, font=font, anchor="mm")
     
-    # --- 🌟 마우스 클릭 기능 구현 (Streamlit 전용 컴포넌트 활용) ---
-    # Streamlit은 기본적으로 클릭 좌표를 지원하지 않으므로, HTML/JS 컴포넌트를 사용하여 마우스 좌표를 받아옵니다.
-    # 클릭한 좌표를 세션 상태에 저장하여 다음 렌더링 때 반영합니다.
+    # --- 🌟 마우스 드래그 기능 구현 (외부 컴포넌트 활용) ---
+    # st.image 대신 좌표 컴포넌트를 사용하여 마우스 좌표를 받아옵니다.
+    # 클릭뿐만 아니라 마우스 움직임에 반응하여 '드래그' 느낌을 줍니다.
     
-    # 미리 보기 이미지 출력 (클릭 좌표를 받아올 수 있는 특수 컴포넌트 사용)
+    # 미리 보기 이미지 출력 (드래그 좌표를 받아올 수 있는 특수 컴포넌트 사용)
     st.markdown("""
     <style>
-    /* 클릭 좌표 컴포넌트 스타일 */
-    .stImage { cursor: crosshair; } /* 마우스 커서를 십자 모양으로 변경 */
+    /* 드래그 좌표 컴포넌트 스타일 */
+    .stImage { cursor: move; } /* 마우스 커서를 이동 아이콘으로 변경 */
     </style>
     """, unsafe_allow_html=True)
     
-    # st.image 대신 좌표 컴포넌트를 사용하여 클릭 위치를 받아옵니다.
-    component = st.image(final_img, use_container_width=True, caption=f"최종 규격: {gen_spec['w']}x{gen_spec['h']}")
+    # component = st.image(final_img, use_container_width=True, caption=f"최종 규격: {gen_spec['w']}x{gen_spec['h']}")
     
-    # --- 🌟 클릭 좌표 업데이트 로직 ---
+    # --- 🌟 드래그 좌표 업데이트 로직 (핵심!) ---
     # component.image_coords는 이미지 내의 상대 좌표 (x, y)를 픽셀 단위로 반환합니다.
-    # 만약 사용자가 이미지를 클릭하면, 이 값이 업데이트되고 화면이 새로고침됩니다.
-    if component.image_coords:
-        new_x, new_y = component.image_coords
-        # 새로운 좌표를 세션 상태에 저장!
-        st.session_state.text_pos = (int(new_x), int(new_y))
+    # 만약 사용자가 이미지를 드래그하면, 이 값이 업데이트되고 화면이 새로고침됩니다.
+    # if component.image_coords:
+    #     new_x, new_y = component.image_coords
+    #     # 새로운 좌표를 세션 상태에 저장!
+    #     st.session_state.text_pos = (int(new_x), int(new_y))
+        # st.rerun() # 실시간 미리보기를 위해 화면 새로고침
+
+    # 🌟 외부 컴포넌트를 사용하여 이미지 출력 및 좌표 수집
+    coords = streamlit_image_coordinates(
+        final_img, # 텍스트가 합성된 이미지를 사용
+        key="image_coords", # 필수: 컴포넌트를 식별하는 고유 키
+        use_container_width=True # 이미지 너비를 컨테이너에 맞춤
+    )
+
+    # 🌟 좌표가 업데이트되면 (마우스가 움직이거나 클릭되면) 세션 상태에 저장
+    if coords:
+        st.session_state.text_pos = (coords["x"], coords["y"])
         st.rerun() # 실시간 미리보기를 위해 화면 새로고침
         
     # --- 5. 다운로드 세션 ---
