@@ -8,44 +8,34 @@ import os
 # --- 페이지 설정 ---
 st.set_page_config(page_title="GFA 마스터 검수기", layout="wide")
 
-# --- 상단 디자인 커스텀 (에러 방지용 일반 문자열 방식) ---
+# --- 깔끔한 상단 타이틀 디자인 (이미지 제거 버전) ---
 st.markdown("""
     <style>
-    [data-testid="stHeader"] {
-        background-image: url("https://raw.githubusercontent.com/sinbiboa/gfa-checker/main/header_bg.png");
-        background-size: contain;
-        background-position: top center;
-        background-repeat: no-repeat;
-        background-color: #f0f2f6;
-        height: 250px;
-    }
-    .main-title {
-        margin-top: -30px;
-        margin-bottom: 20px;
-        text-align: center;
-    }
-    .main-title h1 {
-        background-color: rgba(255, 255, 255, 0.8);
-        padding: 10px;
+    /* 메인 타이틀 박스 */
+    .main-header {
+        background-color: #00C73C; /* 네이버 그린 포인트 */
+        padding: 1.5rem;
         border-radius: 10px;
-        color: #1E1E1E;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
     }
-    .confidence-text {
-        font-size: 26px;
-        font-weight: bold;
-        color: #FF7043;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        margin-top: 15px;
+    .main-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+    }
+    .main-header p {
+        margin: 5px 0 0 0;
+        opacity: 0.9;
     }
     </style>
-    <div class="main-title">
+    <div class="main-header">
         <h1>🎯 GFA 광고 마스터 검수기</h1>
-        <p>네이버 GFA 규격 및 텍스트 비중 자동 분석</p>
-        <p class="confidence-text">야, 너도 GFA 할 수 있어!</p>
+        <p>네이버 GFA 규격 및 텍스트 비중 자동 분석 도구</p>
     </div>
     """, unsafe_allow_html=True)
 
-# --- 광고 유형 설정 ---
+# --- 광고 유형 설정 (배너형 포함) ---
 AD_SPECS = {
     "스마트채널 (1250x370)": {"width": 1250, "height": 370, "size_limit": 500},
     "네이버 메인 (1250x560)": {"width": 1250, "height": 560, "size_limit": 500},
@@ -62,19 +52,19 @@ reader = load_ocr_model()
 
 # --- 사이드바 ---
 st.sidebar.header("📋 설정")
-selected_ad = st.sidebar.selectbox("광고 유형", list(AD_SPECS.keys()))
+selected_ad = st.sidebar.selectbox("광고 유형을 선택하세요", list(AD_SPECS.keys()))
 spec = AD_SPECS[selected_ad]
 show_grid = st.sidebar.checkbox("5x5 오버레이 가이드 보기", value=True)
 
 # --- 파일 업로드 ---
-uploaded_file = st.file_uploader("이미지를 업로드하세요", type=['jpg', 'jpeg', 'png'])
+uploaded_file = st.file_uploader(f"[{selected_ad}] 이미지를 업로드하세요", type=['jpg', 'jpeg', 'png'])
 
 if uploaded_file:
     raw_image = Image.open(uploaded_file)
     width, height = raw_image.size
     img_array = np.array(raw_image.convert('RGB'))
     
-    with st.spinner('AI 분석 중...'):
+    with st.spinner('AI가 이미지를 정밀 분석 중입니다...'):
         results = reader.readtext(img_array)
 
     processed_img = raw_image.copy().convert('RGB')
@@ -100,29 +90,32 @@ if uploaded_file:
     col1, col2 = st.columns([1.2, 1])
 
     with col1:
-        st.subheader("📷 가이드 이미지")
+        st.subheader("📷 분석 가이드 이미지")
         st.image(processed_img, use_container_width=True)
 
     with col2:
-        st.subheader("📝 검수 결과")
+        st.subheader("📝 검수 결과 리포트")
         text_ratio = (current_text_area / total_area) * 100
-        st.write(f"**상태:** {width}x{height} / {text_ratio:.1f}%")
+        st.write(f"**현재 해상도:** {width}x{height}")
+        st.write(f"**텍스트 비중:** {text_ratio:.1f}%")
         
         if text_ratio > 20:
-            st.warning(f"⚠️ 텍스트 과다! ({text_ratio:.1f}%)")
+            st.warning(f"⚠️ 텍스트 비중이 20%를 초과했습니다.")
             sorted_boxes = sorted(text_boxes, key=lambda x: x['area'], reverse=True)
             temp_area = current_text_area
+            st.write("**[삭제 추천 리스트]**")
             for box in sorted_boxes:
                 if (temp_area / total_area) * 100 > 20:
-                    st.write(f"- 🚩 `{box['text']}` 지우기 제안")
+                    st.write(f"- `{box['text']}` 영역 삭제 필요")
                     temp_area -= box['area']
         else:
-            st.success("✅ 통과!")
+            st.success("✅ GFA 텍스트 비중 규격을 통과했습니다!")
 
         st.markdown("---")
-        st.subheader("💾 자동 수정 및 다운로드")
+        st.subheader("💾 자동 규격 최적화")
         
-        if st.button("✨ 규격 자동 맞춤 & 최적화 실행"):
+        if st.button("✨ 클릭하여 규격 맞춤 및 용량 압축"):
+            # 투명도 있는 PNG 대응
             if raw_image.mode in ("RGBA", "P"):
                 background = Image.new("RGB", raw_image.size, (255, 255, 255))
                 background.paste(raw_image, mask=raw_image.split()[3])
@@ -130,27 +123,25 @@ if uploaded_file:
             else:
                 final_img = raw_image.convert("RGB")
             
+            # 리사이징
             final_img = final_img.resize((spec['width'], spec['height']), Image.Resampling.LANCZOS)
             
+            # 압축 루프
             quality = 95
             success = False
-            for i in range(5):
+            for _ in range(5):
                 buf = io.BytesIO()
-                try:
-                    final_img.save(buf, format="JPEG", quality=quality)
-                    if len(buf.getvalue()) < spec['size_limit'] * 1024:
-                        success = True
-                        break
-                    quality -= 10
-                except Exception as e:
-                    st.error(f"저장 중 에러 발생: {e}")
+                final_img.save(buf, format="JPEG", quality=quality)
+                if len(buf.getvalue()) < spec['size_limit'] * 1024:
+                    success = True
                     break
+                quality -= 10
             
             if success:
                 st.download_button(
-                    label="📥 수정된 이미지 다운로드",
+                    label="📥 최적화 완료 이미지 다운로드",
                     data=buf.getvalue(),
-                    file_name=f"GFA_fixed_{selected_ad}.jpg",
+                    file_name=f"fixed_{selected_ad}.jpg",
                     mime="image/jpeg"
                 )
-                st.info(f"{selected_ad} 규격 최적화 완료!")
+                st.info(f"선택한 규격({spec['width']}x{spec['height']})으로 변환되었습니다.")
