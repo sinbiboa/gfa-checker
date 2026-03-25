@@ -3,7 +3,7 @@ import io
 from PIL import Image
 import os
 
-# --- 1. 페이지 설정 및 디자인 ---
+# --- 1. 페이지 설정 및 디자인 (f-string 미사용으로 안전함) ---
 st.set_page_config(page_title="GFA AI 스마트 검수기", layout="wide")
 
 st.markdown("""
@@ -15,7 +15,7 @@ st.markdown("""
     /* 메인 타이틀 */
     .main-title { 
         background-color: #00C73C; 
-        padding: 20px; 
+        padding: 20 :px; 
         border-radius: 15px; 
         color: white; 
         text-align: center; 
@@ -71,7 +71,6 @@ uploaded_file = st.sidebar.file_uploader("검수할 이미지를 업로드하세
 
 # --- 4. 메인 실행 로직 ---
 if uploaded_file:
-    # 이미지 로드 및 리사이징
     img = Image.open(uploaded_file)
     w, h = img.size
     
@@ -80,10 +79,10 @@ if uploaded_file:
     with col1:
         st.subheader("📷 규격 검수 및 최적화")
         if w == spec['w'] and h == spec['h']:
-            st.success(f"✅ 규격 일치 ({w}x{h})")
+            st.success("✅ 규격 일치 (" + str(w) + "x" + str(h) + ")")
             final_img = img
         else:
-            st.warning(f"⚠️ 규격 자동 수정 ({w}x{h} → {spec['w']}x{spec['h']})")
+            st.warning("⚠️ 규격 자동 수정 (" + str(w) + "x" + str(h) + " → " + str(spec['w']) + "x" + str(spec['h']) + ")")
             final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
         
         st.image(final_img, use_container_width=True)
@@ -93,7 +92,7 @@ if uploaded_file:
         st.download_button(
             label="📥 GFA 최적화 이미지 다운로드",
             data=buf.getvalue(),
-            file_name=f"GFA_READY_{spec['w']}x{spec['h']}.jpg",
+            file_name="GFA_READY_" + str(spec['w']) + "x" + str(spec['h']) + ".jpg",
             mime="image/jpeg",
             use_container_width=True
         )
@@ -101,8 +100,8 @@ if uploaded_file:
     with col2:
         st.subheader("🤖 AI 타겟팅 검수 리포트")
         
-        # 🌟 수정한 HTML 리포트 (태그 오류 해결)
-        st.markdown(f"""
+        # HTML 코드를 f-string 없이 그대로 전달하여 깨짐 방지
+        report_html = """
         <div class="ai-report-box">
             <p style="font-size: 18px; font-weight: bold; color: #333; margin-bottom:15px;">📢 현재 소재 보류 위험 분석</p>
             
@@ -126,7 +125,8 @@ if uploaded_file:
                 <p style="font-size: 13px; margin-top: 5px;">문서 전체가 노출되어 시선이 분산됩니다. 사용자의 시선이 멈출 수 있도록 강조 박스나 화살표 등을 활용하는 것이 승인에 유리합니다.</p>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(report_html, unsafe_allow_html=True)
 
 else:
     st.info("왼쪽 사이드바에서 이미지를 업로드하면 소재 특성에 맞는 '보류 위험 리포트'가 생성됩니다.")
