@@ -1,8 +1,3 @@
-코드를 한꺼번에 수정하다 보면 어디서 에러가 났는지 찾기 어려울 수 있죠. 😅 전체 코드를 다시 정리해 드릴 테니, 이 내용을 gfa_checker.py 파일에 모두 덮어쓰기 해보세요.
-
-이번 코드는 배경 이미지 오류를 방지하고, 요청하신 **모든 규격(배너형 포함)**과 다운로드 기능을 안정적으로 합친 버전입니다.
-
-Python
 import streamlit as st
 import easyocr
 import numpy as np
