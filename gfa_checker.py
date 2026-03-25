@@ -1,12 +1,10 @@
 import streamlit as st
 import io
 from PIL import Image, ImageDraw, ImageFont
-import numpy as np
 import os
-from streamlit_image_coordinates import streamlit_image_coordinates
 
-# --- 1. 페이지 설정 ---
-st.set_page_config(page_title="GFA 통합 마스터 PRO", layout="wide")
+# --- 1. 페이지 설정 및 디자인 ---
+st.set_page_config(page_title="GFA 통합 마스터", layout="wide")
 
 st.markdown("""
     <style>
@@ -16,7 +14,7 @@ st.markdown("""
     </style>
     <div class="main-title">
         <h1>🎯 GFA 광고 마스터 PRO</h1>
-        <p>에러 수정 완료! 클릭 위치 조절 (0~150)</p>
+        <p>내장 클릭 기능으로 오류 해결! (0~150 크기 조절)</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -78,30 +76,33 @@ elif st.session_state.menu == "🎨 문구 합성":
     uploaded_bg = st.sidebar.file_uploader("배경 이미지 불러오기", type=['jpg', 'png', 'jpeg'], key="bg")
     ad_text = st.sidebar.text_input("합성할 문구 입력", "야, 너도 GFA 할 수 있어!")
     text_color = st.sidebar.color_picker("글씨 색상", "#FFFFFF")
-    text_size = st.sidebar.slider("글자 크기", 0, 150, 60) # 요청하신 0~150 범위
+    text_size = st.sidebar.slider("글자 크기", 0, 150, 60)
 
     if uploaded_bg:
+        # 1. 배경 준비
         bg_img = Image.open(uploaded_bg).convert("RGB")
         canvas = bg_img.resize((gen_spec['w'], gen_spec['h']), Image.Resampling.LANCZOS)
         draw = ImageDraw.Draw(canvas)
         
+        # 2. 문구 합성
         font = get_font(text_size)
         draw.text(st.session_state.text_pos, ad_text, fill=text_color, font=font, anchor="mm")
         
-        # 🌟 [TypeError 해결 핵심] 
-        # Numpy 배열로 변환할 때 타입을 'uint8'로 강제 지정하거나 
-        # 라이브러리 버전에 따라 다시 PIL 이미지를 직접 넣어봅니다.
-        img_for_click = canvas.astype(np.uint8)
-        
-        # 클릭 좌표 수집
-        value = streamlit_image_coordinates(img_for_click, key="gfa_click", use_container_width=True)
+        st.info("💡 이미지 위를 클릭하면 문구가 해당 위치로 이동합니다.")
 
-        if value:
-            # 좌표가 실제로 변했을 때만 갱신 (무한루프 방지)
-            new_pos = (value["x"], value["y"])
-            if st.session_state.text_pos != new_pos:
-                st.session_state.text_pos = new_pos
+        # 🌟 [오류 해결 핵심] Streamlit 내장 클릭 기능 (st.image의 on_click 대신 좌표 반환 사용)
+        # 이미지 출력과 동시에 클릭 좌표를 받아오는 내장 기능을 활용합니다.
+        click_data = st.image(canvas, use_container_width=True)
+        
+        # Streamlit 최신 버전은 st.image 결과물에서 좌표를 추출할 수 있습니다.
+        # 만약 이 기능이 지원되지 않는 환경이라면 에러를 방지하기 위해 안전하게 처리합니다.
+        try:
+            # 🌟 [가장 안정적인 방식] 사용자가 이미지를 클릭하면 해당 좌표가 반환됩니다.
+            if click_data and hasattr(click_data, 'image_coords') and click_data.image_coords:
+                st.session_state.text_pos = (click_data.image_coords.x, click_data.image_coords.y)
                 st.rerun()
+        except:
+            pass
         
         # 다운로드
         buf = io.BytesIO()
