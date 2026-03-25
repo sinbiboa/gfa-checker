@@ -39,6 +39,8 @@ st.markdown("""
         font-size: 13px; 
         font-weight: bold; 
         margin-right: 10px;
+        display: inline-block;
+        margin-bottom: 5px;
     }
     
     .report-item { margin-bottom: 20px; border-bottom: 1px solid #ffebeb; padding-bottom: 15px; }
@@ -82,12 +84,10 @@ if uploaded_file:
             final_img = img
         else:
             st.warning(f"⚠️ 규격 자동 수정 ({w}x{h} → {spec['w']}x{spec['h']})")
-            # 고품질 리사이징
             final_img = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
         
-        st.image(final_img, use_container_width=True, caption="최적화된 GFA 소재 미리보기")
+        st.image(final_img, use_container_width=True)
         
-        # 다운로드 버튼
         buf = io.BytesIO()
         final_img.convert("RGB").save(buf, format="JPEG", quality=95)
         st.download_button(
@@ -101,7 +101,7 @@ if uploaded_file:
     with col2:
         st.subheader("🤖 AI 타겟팅 검수 리포트")
         
-        # 🌟 사용자가 지정한 4가지 핵심 보류 사유 출력
+        # 🌟 수정한 HTML 리포트 (태그 오류 해결)
         st.markdown(f"""
         <div class="ai-report-box">
             <p style="font-size: 18px; font-weight: bold; color: #333; margin-bottom:15px;">📢 현재 소재 보류 위험 분석</p>
@@ -117,7 +117,7 @@ if uploaded_file:
             </div>
 
             <div class="report-item">
-                <span class="danger-tag) ">경고</span> <strong>텍스트 가독성 (식별 불가)</strong><br>
+                <span class="danger-tag">경고</span> <strong>텍스트 가독성 (식별 불가)</strong><br>
                 <p style="font-size: 13px; margin-top: 5px;">문서 형태의 소재는 글자가 작아 스마트폰 화면에서 깨져 보일 수 있습니다. 핵심이 아닌 작은 텍스트는 블러 처리하고, 중요한 문구만 강조하세요.</p>
             </div>
 
@@ -127,8 +127,6 @@ if uploaded_file:
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.info("💡 AI가 소재의 텍스트 밀도와 캡처 구조를 분석하여 최적의 사유만 선별했습니다.")
 
 else:
     st.info("왼쪽 사이드바에서 이미지를 업로드하면 소재 특성에 맞는 '보류 위험 리포트'가 생성됩니다.")
