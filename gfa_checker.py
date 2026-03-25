@@ -5,35 +5,45 @@ from PIL import Image, ImageDraw
 import io
 import os
 
-# --- 페이지 설정 ---
-st.set_page_config(page_title="GFA 마스터 검수기", layout="wide")
-
-# --- 상단 디자인 커스텀 (배경 이미지 및 문구 적용) ---
-# YOUR_GITHUB_ID 부분을 본인 아이디로 수정하세요!
-MY_ID = "sinbiboa" 
+# --- 상단 디자인 커스텀 (배너 안 잘리게 수정) ---
 st.markdown(f"""
     <style>
+    /* 상단 헤더 부분 배경 설정 */
     [data-testid="stHeader"] {{
-        background-image: url("https://raw.githubusercontent.com/{MY_ID}/gfa-checker/main/header_bg.jpg");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        height: 180px;
+        background-image: url("https://raw.githubusercontent.com/{YOUR_GITHUB_ID}/gfa-checker/main/header_bg.jpg"); /* 본인 아이디로 수정 필수! */
+        background-size: contain; /* 이미지가 잘리지 않고 전체가 보이도록 수정 */
+        background-position: top center; /* 상단 가운데 정렬 */
+        background-repeat: no-repeat; /* 반복 없음 */
+        background-color: #f0f2f6; /* 빈 공간 배경색 (예: 연한 회색) */
+        height: 250px; /* 배너 전체가 보일 수 있도록 높이 넉넉히 조정 */
     }}
+    
+    /* 제목 부분 스타일 (배너 아래에 오도록 위치 조정) */
     .main-title {{
-        background-color: rgba(0, 0, 0, 0.6);
-        padding: 20px;
-        border-radius: 10px;
-        color: white;
+        margin-top: -30px; /* 배너 바로 아래에 오도록 위쪽 마진 조정 */
+        margin-bottom: 20px;
         text-align: center;
-        margin-top: 30px;
     }}
+    
+    .main-title h1 {{
+        background-color: rgba(255, 255, 255, 0.8); /* 제목 뒤에 반투명 하얀색 배경 추가 (가독성) */
+        padding: 10px;
+        border-radius: 10px;
+        color: #1E1E1E; /* 진한 회색 글자 */
+    }}
+    
+    .main-title p {{
+        margin-top: 5px;
+        color: #31333F; /* 일반 본문 글자색 */
+    }}
+
+    /* 자신감 문구 스타일 */
     .confidence-text {{
-        font-size: 24px;
+        font-size: 26px; /* 조금 더 크게 */
         font-weight: bold;
-        color: #FFD700;
-        margin-top: 10px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        color: #FF7043; /* 배너 분위기에 맞춰 오렌지색 계열로 변경 (예: 네이버 로고색) */
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* 은은한 그림자 */
+        margin-top: 15px;
     }}
     </style>
     <div class="main-title">
