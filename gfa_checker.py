@@ -5,46 +5,38 @@ from PIL import Image, ImageDraw
 import io
 import os
 
-# --- 상단 디자인 커스텀 (배너 안 잘리게 수정) ---
-st.markdown(f"""
+# --- 페이지 설정 ---
+st.set_page_config(page_title="GFA 마스터 검수기", layout="wide")
+
+# --- 상단 디자인 커스텀 (에러 방지용 일반 문자열 방식) ---
+st.markdown("""
     <style>
-    /* 상단 헤더 부분 배경 설정 */
-    [data-testid="stHeader"] {{
-        background-image: url("https://raw.githubusercontent.com/{YOUR_GITHUB_sinbiboa}/gfa-checker/main/header_bg.jpg"); /* 본인 아이디로 수정 필수! */
-        background-size: contain; /* 이미지가 잘리지 않고 전체가 보이도록 수정 */
-        background-position: top center; /* 상단 가운데 정렬 */
-        background-repeat: no-repeat; /* 반복 없음 */
-        background-color: #f0f2f6; /* 빈 공간 배경색 (예: 연한 회색) */
-        height: 250px; /* 배너 전체가 보일 수 있도록 높이 넉넉히 조정 */
-    }}
-    
-    /* 제목 부분 스타일 (배너 아래에 오도록 위치 조정) */
-    .main-title {{
-        margin-top: -30px; /* 배너 바로 아래에 오도록 위쪽 마진 조정 */
+    [data-testid="stHeader"] {
+        background-image: url("https://raw.githubusercontent.com/sinbiboa/gfa-checker/main/header_bg.jpg");
+        background-size: contain;
+        background-position: top center;
+        background-repeat: no-repeat;
+        background-color: #f0f2f6;
+        height: 250px;
+    }
+    .main-title {
+        margin-top: -30px;
         margin-bottom: 20px;
         text-align: center;
-    }}
-    
-    .main-title h1 {{
-        background-color: rgba(255, 255, 255, 0.8); /* 제목 뒤에 반투명 하얀색 배경 추가 (가독성) */
+    }
+    .main-title h1 {
+        background-color: rgba(255, 255, 255, 0.8);
         padding: 10px;
         border-radius: 10px;
-        color: #1E1E1E; /* 진한 회색 글자 */
-    }}
-    
-    .main-title p {{
-        margin-top: 5px;
-        color: #31333F; /* 일반 본문 글자색 */
-    }}
-
-    /* 자신감 문구 스타일 */
-    .confidence-text {{
-        font-size: 26px; /* 조금 더 크게 */
+        color: #1E1E1E;
+    }
+    .confidence-text {
+        font-size: 26px;
         font-weight: bold;
-        color: #FF7043; /* 배너 분위기에 맞춰 오렌지색 계열로 변경 (예: 네이버 로고색) */
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* 은은한 그림자 */
+        color: #FF7043;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         margin-top: 15px;
-    }}
+    }
     </style>
     <div class="main-title">
         <h1>🎯 GFA 광고 마스터 검수기</h1>
@@ -53,13 +45,13 @@ st.markdown(f"""
     </div>
     """, unsafe_allow_html=True)
 
-# --- 광고 유형 설정 (배너형 추가) ---
+# --- 광고 유형 설정 ---
 AD_SPECS = {
     "스마트채널 (1250x370)": {"width": 1250, "height": 370, "size_limit": 500},
     "네이버 메인 (1250x560)": {"width": 1250, "height": 560, "size_limit": 500},
     "피드형 네이버/밴드 (1200x628)": {"width": 1200, "height": 628, "size_limit": 500},
     "피드형 1:1 규격 (1200x1200)": {"width": 1200, "height": 1200, "size_limit": 500},
-    "배너형 (342x228)": {"width": 342, "height": 228, "size_limit": 500} # 👈 새로 추가!
+    "배너형 (342x228)": {"width": 342, "height": 228, "size_limit": 500}
 }
 
 @st.cache_resource
@@ -85,7 +77,7 @@ if uploaded_file:
     with st.spinner('AI 분석 중...'):
         results = reader.readtext(img_array)
 
-    processed_img = raw_image.copy().convert('RGB') # 에러 방지를 위해 미리 RGB 변환
+    processed_img = raw_image.copy().convert('RGB')
     draw = ImageDraw.Draw(processed_img)
     
     text_boxes = []
@@ -131,7 +123,6 @@ if uploaded_file:
         st.subheader("💾 자동 수정 및 다운로드")
         
         if st.button("✨ 규격 자동 맞춤 & 최적화 실행"):
-            # 1. 리사이징 시 배경 처리 (RGBA -> RGB 흰색 배경 처리)
             if raw_image.mode in ("RGBA", "P"):
                 background = Image.new("RGB", raw_image.size, (255, 255, 255))
                 background.paste(raw_image, mask=raw_image.split()[3])
@@ -141,7 +132,6 @@ if uploaded_file:
             
             final_img = final_img.resize((spec['width'], spec['height']), Image.Resampling.LANCZOS)
             
-            # 2. 압축 및 저장 (에러 방지용 안전 로직 추가)
             quality = 95
             success = False
             for i in range(5):
@@ -163,4 +153,4 @@ if uploaded_file:
                     file_name=f"GFA_fixed_{selected_ad}.jpg",
                     mime="image/jpeg"
                 )
-                st.info(f"{selected_ad} 규격({spec['width']}x{spec['height']}) 최적화 완료!")
+                st.info(f"{selected_ad} 규격 최적화 완료!")
