@@ -14,7 +14,7 @@ st.markdown("""
     </style>
     <div class="main-title">
         <h1>🎯 GFA 광고 마스터 PRO</h1>
-        <p>글자 크기 완벽 조절 & 규격 검수 통합본</p>
+        <p>윈도우 폰트 크기 조절 완벽 해결본</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -30,7 +30,7 @@ AD_SPECS = {
 if 'menu' not in st.session_state:
     st.session_state.menu = "🔍 규격 검수"
 
-# --- 3. 사이드바 메뉴 버튼 ---
+# --- 3. 사이드바 메뉴 ---
 st.sidebar.markdown("<p style='color:white; font-size:20px; font-weight:bold;'>🛠️ 메뉴 선택</p>", unsafe_allow_html=True)
 if st.sidebar.button("🔍 GFA 규격 검수", use_container_width=True):
     st.session_state.menu = "🔍 규격 검수"
@@ -39,89 +39,72 @@ if st.sidebar.button("🎨 문구 합성 편집", use_container_width=True):
 
 st.sidebar.markdown("---")
 
-# --- 4. 메인 기능 로직 ---
+# --- 4. 메인 로직 ---
 
-# [탭 1: GFA 규격 검수]
 if st.session_state.menu == "🔍 규격 검수":
     st.header("🔍 GFA 광고 규격 검수")
-    selected_ad = st.sidebar.selectbox("검수할 규격 선택", list(AD_SPECS.keys()))
+    selected_ad = st.sidebar.selectbox("검수 규격", list(AD_SPECS.keys()))
     spec = AD_SPECS[selected_ad]
-    
-    uploaded_check = st.file_uploader(f"[{selected_ad}] 검수할 이미지 업로드", type=['jpg', 'png', 'jpeg'], key="check_file")
+    uploaded_check = st.file_uploader("이미지 업로드", type=['jpg', 'png', 'jpeg'], key="check")
     
     if uploaded_check:
         img = Image.open(uploaded_check)
         w, h = img.size
         col1, col2 = st.columns([1.5, 1])
         with col2:
-            st.subheader("📝 검수 결과")
             if w == spec['w'] and h == spec['h']:
-                st.success(f"✅ 규격 일치! ({w}x{h})")
+                st.success(f"✅ 일치! ({w}x{h})")
             else:
-                st.error(f"❌ 규격 불일치 (현재: {w}x{h} / 권장: {spec['w']}x{spec['h']})")
-                if st.button("🔄 이 규격으로 리사이징"):
+                st.error(f"❌ 불일치 ({w}x{h})")
+                if st.button("🔄 리사이징"):
                     resized = img.resize((spec['w'], spec['h']), Image.Resampling.LANCZOS)
                     buf = io.BytesIO()
                     resized.convert("RGB").save(buf, format="JPEG", quality=90)
-                    st.download_button("📥 리사이징 이미지 다운로드", buf.getvalue(), "fixed_ad.jpg", "image/jpeg")
+                    st.download_button("📥 다운로드", buf.getvalue(), "fixed.jpg", "image/jpeg")
         with col1:
-            st.image(img, use_container_width=True, caption=f"업로드 이미지 ({w}x{h})")
+            st.image(img, use_container_width=True)
 
-# [탭 2: 문구 합성 편집]
 elif st.session_state.menu == "🎨 문구 합성":
     st.header("🎨 문구 합성 편집기")
     
-    selected_gen = st.sidebar.selectbox("제작 규격 선택", list(AD_SPECS.keys()))
+    selected_gen = st.sidebar.selectbox("제작 규격", list(AD_SPECS.keys()))
     gen_spec = AD_SPECS[selected_gen]
     
-    uploaded_bg = st.sidebar.file_uploader("배경 이미지 불러오기", type=['jpg', 'png', 'jpeg'], key="bg_file")
+    uploaded_bg = st.sidebar.file_uploader("배경 이미지 업로드", type=['jpg', 'png', 'jpeg'], key="bg")
     
-    ad_text = st.sidebar.text_input("합성할 문구 입력", "GFA 광고 문구")
-    text_color = st.sidebar.color_picker("글씨 색상 선택", "#FFFFFF")
+    ad_text = st.sidebar.text_input("문구 입력", "GFA 광고 문구")
+    text_color = st.sidebar.color_picker("색상 선택", "#FFFFFF")
     
-    # 🌟 글자 크기 슬라이더 (최대 1000까지 넉넉하게 확장)
-    text_size = st.sidebar.slider("글자 크기 조절", 10, 1000, 200)
+    # 🌟 글자 크기 슬라이더 (실시간 반영을 위해 범위를 크게 잡음)
+    text_size = st.sidebar.slider("글자 크기", 20, 1500, 200)
     
     if uploaded_bg:
-        # 1. 배경 준비
         bg_img = Image.open(uploaded_bg).convert("RGB")
         canvas = bg_img.resize((gen_spec['w'], gen_spec['h']), Image.Resampling.LANCZOS)
         draw = ImageDraw.Draw(canvas)
         
-        # 🌟 2. 폰트 로드 방식 개선 (크기 조절의 핵심)
-        # 시스템에 폰트가 없더라도 크기 조절이 가능한 FreeType 폰트 엔진 사용 유도
-        font = None
-        # 시도해볼 폰트 경로 리스트 (Windows / Linux 공용 가능성 대비)
-        font_paths = [
-            "C:\\Windows\\Fonts\\malgun.ttf", # Win
-            "C:\\Windows\\Fonts\\arial.ttf",  # Win
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", # Linux/Streamlit Cloud
-        ]
+        # 🌟 윈도우 폰트 경로를 강제로 지정 (Malgun Gothic)
+        # 윈도우는 보통 C:/Windows/Fonts/malgun.ttf 에 폰트가 있습니다.
+        font_path = "C:/Windows/Fonts/malgun.ttf"
         
-        for path in font_paths:
-            if os.path.exists(path):
-                try:
-                    font = ImageFont.truetype(path, text_size)
-                    break
-                except:
-                    continue
-        
-        # 만약 위 경로에 폰트가 없다면 기본 폰트를 사용하되, 
-        # PIL 기본 폰트는 크기 조절이 안되므로 경고를 띄우거나 대체 로직 필요
-        if not font:
-            st.warning("⚠️ 폰트 파일을 찾을 수 없어 기본 폰트를 사용합니다. (이 경우 크기 조절이 제한될 수 있습니다)")
-            font = ImageFont.load_default()
+        try:
+            # 폰트 파일을 직접 로드하여 슬라이더 크기를 적용
+            font = ImageFont.truetype(font_path, text_size)
+        except:
+            # 경로가 다르거나 오류 시 대체 폰트 (Arial)
+            try:
+                font = ImageFont.truetype("arial.ttf", text_size)
+            except:
+                # 최후의 수단: 크기 조절이 안 되는 기본 폰트
+                st.error("윈도우 폰트를 찾을 수 없습니다. 프로젝트 폴더에 폰트 파일을 넣어주세요.")
+                font = ImageFont.load_default()
             
-        # 3. 정중앙 합성
+        # 텍스트 합성 (정중앙)
         draw.text((gen_spec['w']//2, gen_spec['h']//2), ad_text, fill=text_color, font=font, anchor="mm")
         
-        # 4. 실시간 미리보기 출력
-        st.subheader("📷 실시간 미리보기")
-        st.image(canvas, use_container_width=True, caption=f"현재 규격: {selected_gen}")
+        st.subheader("📷 미리보기")
+        st.image(canvas, use_container_width=True)
         
-        # 5. 다운로드
         buf = io.BytesIO()
         canvas.save(buf, format="JPEG", quality=95)
-        st.download_button("📥 완성된 이미지 다운로드", buf.getvalue(), "gfa_edit.jpg", "image/jpeg", use_container_width=True)
-    else:
-        st.info("왼쪽에서 이미지를 먼저 업로드해 주세요.")
+        st.download_button("📥 완성 이미지 다운로드", buf.getvalue(), "gfa_ad.jpg", "image/jpeg", use_container_width=True)
