@@ -91,7 +91,7 @@ elif st.session_state.menu == "🎨 문구 합성":
         # 🌟 [TypeError 해결 핵심] 
         # Numpy 배열로 변환할 때 타입을 'uint8'로 강제 지정하거나 
         # 라이브러리 버전에 따라 다시 PIL 이미지를 직접 넣어봅니다.
-        img_for_click = np.array(canvas).astype(np.uint8)
+        img_for_click = canvas.astype(np.uint8)
         
         # 클릭 좌표 수집
         value = streamlit_image_coordinates(img_for_click, key="gfa_click", use_container_width=True)
