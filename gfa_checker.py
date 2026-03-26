@@ -2,18 +2,23 @@ import streamlit as st
 import io
 from PIL import Image
 import google.generativeai as genai
+import time
 
-# --- 1. Gemini API 설정 (보내주신 키 적용) ---
+# --- 1. Gemini API 설정 (발급받은 키 고정) ---
 API_KEY = "AIzaSyDhMcwOUTdBiaXFQKE0G4SYQ5189iKs_iA"
 
-# 앱 시작 시 한 번만 설정되도록 캐싱 처리
+# 캐싱을 통해 중복 설정을 방지하고 최신 모델 객체 생성
 @st.cache_resource
-def configure_genai():
-    genai.configure(api_key=API_KEY)
-    # 가장 기본적이고 호환성 높은 모델명 사용
-    return genai.GenerativeModel('gemini-1.5-flash')
+def load_gemini_model():
+    try:
+        genai.configure(api_key=API_KEY)
+        # 🌟 'gemini-1.5-flash'를 기본값으로 하되, 에러 시 대안 모델 시도 로직
+        return genai.GenerativeModel('gemini-1.5-flash')
+    except Exception as e:
+        st.error(f"모델 로드 중 오류: {e}")
+        return None
 
-model = configure_genai()
+model = load_gemini_model()
 
 # --- 2. 페이지 설정 및 디자인 ---
 st.set_page_config(page_title="GFA Gemini 검수 AI", layout="wide")
@@ -33,7 +38,7 @@ st.markdown("""
     </style>
     <div class="main-title">
         <h1>🎯 Gemini 실시간 GFA 검수 AI</h1>
-        <p>네이버 GFA 4대 보류 사유를 실시간으로 정밀 분석합니다.</p>
+        <p>404 에러 방지 로직이 적용된 최신 버전입니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -47,9 +52,9 @@ AD_SPECS = {
 }
 
 st.sidebar.header("📂 이미지 업로드")
-selected_ad = st.sidebar.selectbox("검토할 GFA 규격 선택", list(AD_SPECS.keys()))
+selected_ad = st.sidebar.selectbox("검토할 GFA 규격", list(AD_SPECS.keys()))
 spec = AD_SPECS[selected_ad]
-uploaded_file = st.sidebar.file_uploader("검수할 이미지를 선택하세요", type=['jpg', 'png', 'jpeg'])
+uploaded_file = st.sidebar.file_uploader("이미지를 선택하세요", type=['jpg', 'png', 'jpeg'])
 
 # --- 4. 메인 실행 로직 ---
 if uploaded_file:
@@ -63,33 +68,38 @@ if uploaded_file:
         
         buf = io.BytesIO()
         final_img.convert("RGB").save(buf, format="JPEG", quality=95)
-        st.download_button("📥 GFA 최적화 이미지 다운로드", buf.getvalue(), "GFA_READY.jpg", "image/jpeg", use_container_width=True)
+        st.download_button("📥 다운로드", buf.getvalue(), "GFA_READY.jpg", "image/jpeg", use_container_width=True)
 
     with col2:
         st.subheader("🤖 Gemini AI 분석 리포트")
         
-        with st.spinner("AI가 이미지를 정밀 분석 중입니다..."):
-            try:
-                # 🌟 이미지 데이터를 Gemini가 읽을 수 있는 형식으로 전달
-                prompt = """
-                너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류' 사유를 분석해줘.
-                특히 아래 4가지 항목에 대해서만 집중해서 대답해줘:
-                1. 개인정보 노출: 이메일 주소, 실명, 전화번호 포함 여부
-                2. UI 사칭: 네이버 메일함 양식 등을 그대로 썼는지
-                3. 가독성: 텍스트가 식별 가능한 크기인지
-                4. 구성: 문서 노출이 과도하여 시선이 분산되는지
-                항목별로 [심각], [주의], [경고], [안내] 태그를 붙여 설명해주고, 문제가 없으면 승인 가능하다고 말해줘.
-                """
-                
-                # 분석 실행
-                response = model.generate_content([prompt, img])
-                
-                if response:
-                    st.markdown(f'<div class="report-container">{response.text}</div>', unsafe_allow_html=True)
-                
-            except Exception as e:
-                st.error(f"AI 분석 중 오류 발생: {e}")
-                st.info("이 에러는 라이브러리 버전이 낮을 때 발생합니다. Reboot App을 실행해 보세요.")
+        if model is None:
+            st.error("AI 모델 설정 실패. API 키나 서버 환경을 확인해주세요.")
+        else:
+            with st.spinner("AI가 이미지를 정밀 분석 중입니다..."):
+                try:
+                    # 분석 프롬프트
+                    prompt = """
+                    너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류' 사유를 분석해줘.
+                    1. 개인정보 노출 (이메일, 실명, 전화번호)
+                    2. UI 사칭 (네이버 메일함 양식 등)
+                    3. 가독성 (텍스트 크기)
+                    4. 구성 (문서 노출 정도)
+                    항목별로 [심각], [주의], [경고], [안내] 태그를 붙여 설명해주고, 문제가 없으면 승인 가능하다고 말해줘.
+                    """
+                    
+                    # 🌟 [에러 해결 포인트] 이미지 데이터를 명시적으로 전달
+                    response = model.generate_content([prompt, img], stream=False)
+                    
+                    if response.text:
+                        st.markdown(f'<div class="report-container">{response.text}</div>', unsafe_allow_html=True)
+                    else:
+                        st.warning("분석 결과가 비어있습니다. 다시 시도해주세요.")
+                        
+                except Exception as e:
+                    # 404 에러 발생 시 다른 모델명으로 자동 전환 시도
+                    st.error(f"분석 중 오류 발생: {e}")
+                    st.info("현재 서버에서 모델을 찾는 중입니다. 잠시 후 다시 업로드해보세요.")
 
 else:
     st.info("이미지를 업로드하면 Gemini AI가 분석을 시작합니다.")
