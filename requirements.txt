@@ -1,9 +1,3 @@
-streamlit
-easyocr
-pillow
-numpy
-opencv-python-headless
-streamlit-image-coordinates
-openai
-streamlit
 google-generativeai
+streamlit
+Pillow
