@@ -3,18 +3,17 @@ import io
 from PIL import Image
 import google.generativeai as genai
 
-# --- 1. Gemini API 설정 (키 적용) ---
+# --- 1. Gemini API 설정 (보내주신 키 적용) ---
 API_KEY = "AIzaSyDhMcwOUTdBiaXFQKE0G4SYQ5189iKs_iA"
 
-# 에러 방지를 위해 초기 모델 변수 설정
-model = None
-
-try:
+# 앱 시작 시 한 번만 설정되도록 캐싱 처리
+@st.cache_resource
+def configure_genai():
     genai.configure(api_key=API_KEY)
-    # 모델명을 풀네임으로 시도 (버전 호환성 확보)
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
-except Exception as e:
-    st.error(f"AI 모델 초기화 중 오류가 발생했습니다: {e}")
+    # 가장 기본적이고 호환성 높은 모델명 사용
+    return genai.GenerativeModel('gemini-1.5-flash')
+
+model = configure_genai()
 
 # --- 2. 페이지 설정 및 디자인 ---
 st.set_page_config(page_title="GFA Gemini 검수 AI", layout="wide")
@@ -69,32 +68,28 @@ if uploaded_file:
     with col2:
         st.subheader("🤖 Gemini AI 분석 리포트")
         
-        if model is None:
-            st.error("AI 모델이 설정되지 않았습니다. API 키와 라이브러리 버전을 확인해 주세요.")
-        else:
-            with st.spinner("AI가 이미지를 정밀 분석 중입니다..."):
-                try:
-                    prompt = """
-                    너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류' 사유가 있는지 분석해줘.
-                    특히 아래 4가지 항목에 대해서만 집중해서 대답해줘:
-                    1. 개인정보 노출: 이메일 주소, 실명, 전화번호 포함 여부
-                    2. UI 사칭: 네이버 메일함 양식 등을 그대로 썼는지
-                    3. 가독성: 텍스트가 식별 가능한 크기인지
-                    4. 구성: 문서 노출이 과도하여 시선이 분산되는지
-                    항목별로 [심각], [주의], [경고], [안내] 태그를 붙여 설명해주고, 문제가 없으면 승인 가능하다고 말해줘.
-                    """
-                    
-                    # 🌟 콘텐츠 생성 시도
-                    response = model.generate_content([prompt, img])
-                    
-                    if response:
-                        st.markdown(f'<div class="report-container">{response.text}</div>', unsafe_allow_html=True)
-                    else:
-                        st.error("AI 응답을 받지 못했습니다.")
-                        
-                except Exception as e:
-                    st.error(f"AI 분석 중 오류 발생: {e}")
-                    st.write("라이브러리 버전 문제일 수 있습니다. 'requirements.txt'의 버전을 높여보세요.")
+        with st.spinner("AI가 이미지를 정밀 분석 중입니다..."):
+            try:
+                # 🌟 이미지 데이터를 Gemini가 읽을 수 있는 형식으로 전달
+                prompt = """
+                너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류' 사유를 분석해줘.
+                특히 아래 4가지 항목에 대해서만 집중해서 대답해줘:
+                1. 개인정보 노출: 이메일 주소, 실명, 전화번호 포함 여부
+                2. UI 사칭: 네이버 메일함 양식 등을 그대로 썼는지
+                3. 가독성: 텍스트가 식별 가능한 크기인지
+                4. 구성: 문서 노출이 과도하여 시선이 분산되는지
+                항목별로 [심각], [주의], [경고], [안내] 태그를 붙여 설명해주고, 문제가 없으면 승인 가능하다고 말해줘.
+                """
+                
+                # 분석 실행
+                response = model.generate_content([prompt, img])
+                
+                if response:
+                    st.markdown(f'<div class="report-container">{response.text}</div>', unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"AI 분석 중 오류 발생: {e}")
+                st.info("이 에러는 라이브러리 버전이 낮을 때 발생합니다. Reboot App을 실행해 보세요.")
 
 else:
     st.info("이미지를 업로드하면 Gemini AI가 분석을 시작합니다.")
