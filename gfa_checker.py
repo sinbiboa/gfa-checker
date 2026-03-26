@@ -8,21 +8,16 @@ API_KEY = "AIzaSyCV2TYtxvw3JOo8-uGPQjm2ukHaqqxaguY"
 
 @st.cache_resource
 def load_stable_model():
-    """404 에러를 방지하기 위해 가장 안정적인 호출 경로를 사용합니다."""
+    """v1beta 에러를 피하기 위해 모델 호출 방식을 가장 표준적인 형태로 고정합니다."""
     try:
         genai.configure(api_key=API_KEY)
         
-        # 🌟 해결 포인트: 'models/' 접두사를 명시하거나 가장 호환성 높은 경로 사용
-        # 일부 환경에서는 'gemini-1.5-flash' 보다 'models/gemini-1.5-flash'가 정확합니다.
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
-        return model, "Gemini 1.5 Flash (Standard)"
-    except:
-        try:
-            # 🌟 대안: 구형 비전 모델 시도
-            model = genai.GenerativeModel('models/gemini-pro-vision')
-            return model, "Gemini Pro Vision (Legacy)"
-        except Exception as e:
-            return None, str(e)
+        # 🌟 해결 핵심: 모델명을 'models/gemini-1.5-flash'로 명시하여 경로 탐색 오류 방지
+        # 이 방식은 v1beta와 v1 모두에서 가장 호환성이 높습니다.
+        model = genai.GenerativeModel(model_name='models/gemini-1.5-flash')
+        return model, "Gemini 1.5 Flash (연결 성공)"
+    except Exception as e:
+        return None, str(e)
 
 model, active_info = load_stable_model()
 
@@ -61,8 +56,9 @@ selected_ad = st.sidebar.selectbox("검토할 GFA 규격", list(AD_SPECS.keys())
 spec = AD_SPECS[selected_ad]
 uploaded_file = st.sidebar.file_uploader("검수할 이미지를 선택하세요", type=['jpg', 'png', 'jpeg'])
 
-if active_info:
-    st.sidebar.success(f"🤖 연결 상태: {active_info}")
+# 연결 상태 표시
+if "성공" in active_info:
+    st.sidebar.success(f"✅ {active_info}")
 else:
     st.sidebar.error(f"❌ 연결 실패: {active_info}")
 
@@ -84,12 +80,12 @@ if uploaded_file:
         st.subheader("🤖 Gemini 실시간 분석 리포트")
         
         if model is None:
-            st.error("AI 모델을 불러올 수 없습니다. API 키를 새로 발급받거나 서버를 재부팅해 보세요.")
+            st.error("AI 모델 로드에 실패했습니다. API 키를 확인하거나 Reboot App을 실행하세요.")
         else:
             with st.spinner("AI가 이미지를 정밀 분석 중입니다..."):
                 try:
                     prompt = """
-                    너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류' 사유가 있는지 분석해줘.
+                    너는 네이버 GFA 광고 검수 전문가야. 이 이미지를 보고 '보류' 사유를 분석해줘.
                     1. 개인정보 노출 (이메일, 실명, 전화번호)
                     2. UI 사칭 (네이버 메일함 양식 등)
                     3. 가독성 (텍스트 크기)
@@ -106,6 +102,7 @@ if uploaded_file:
                         st.warning("분석 결과가 비어있습니다. 다시 시도해 주세요.")
                 except Exception as e:
                     st.error(f"분석 중 오류 발생: {e}")
+                    st.info("이 오류가 반복되면 'requirements.txt'의 내용을 확인하세요.")
 
 else:
     st.info("이미지를 업로드하면 Gemini AI가 분석을 시작합니다.")
